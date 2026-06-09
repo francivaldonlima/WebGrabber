@@ -13,58 +13,10 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, unquote
 import os
 import re
-import struct
-import zlib
-import base64
 from pathlib import Path
 from datetime import datetime
 import queue
 
-
-def _create_globe_icon():
-    size = 32
-    cx = cy = (size - 1) / 2.0
-    r = cx - 0.5
-
-    rows = []
-    for y in range(size):
-        row = bytearray()
-        for x in range(size):
-            dx = x - cx
-            dy = y - cy
-            dist = (dx * dx + dy * dy) ** 0.5
-
-            if dist > r + 0.5:
-                row += bytes([0, 0, 0, 0])
-            elif dist > r - 0.5:
-                alpha = int(255 * (r + 0.5 - dist))
-                row += bytes([10, 50, 110, alpha])
-            else:
-                on_grid = (
-                    abs(dy) < 1.0 or
-                    abs(abs(dy) - r * 0.5) < 1.0 or
-                    abs(dx) < 1.0 or
-                    abs(abs(dx) - r * 0.55) < 1.0
-                )
-                if on_grid:
-                    row += bytes([200, 225, 255, 210])
-                else:
-                    row += bytes([30, 100, 210, 255])
-        rows.append(bytes(row))
-
-    def make_chunk(ctype, data):
-        crc = zlib.crc32(ctype + data) & 0xFFFFFFFF
-        return struct.pack('>I', len(data)) + ctype + data + struct.pack('>I', crc)
-
-    ihdr = struct.pack('>II', size, size) + bytes([8, 6, 0, 0, 0])
-    idat = zlib.compress(b''.join(b'\x00' + row for row in rows), 6)
-
-    png = (b'\x89PNG\r\n\x1a\n' +
-           make_chunk(b'IHDR', ihdr) +
-           make_chunk(b'IDAT', idat) +
-           make_chunk(b'IEND', b''))
-
-    return base64.b64encode(png).decode()
 
 class WebGrabber:
     def __init__(self, root):
@@ -752,9 +704,8 @@ def main():
     root.geometry(f'{width}x{height}+{x}+{y}')
     
     try:
-        icon = tk.PhotoImage(data=_create_globe_icon())
-        root._icon = icon
-        root.iconphoto(True, icon)
+        icon_path = Path(__file__).parent / 'web_find.ico'
+        root.iconbitmap(str(icon_path))
     except Exception:
         pass
 
